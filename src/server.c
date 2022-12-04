@@ -1,40 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <mqueue.h>
-#include "network_util.h"
+#include "utils.h"
 #include "queue.h"
+
+#define MAX_BUFFER 200
 
 int newBufferLen = 0;
 TNode * ptr_init = NULL;
 int idx = 0;
 
-struct sockaddr_in format_addr(char * ip, int port)
+char* concat(const char *s1, const char *s2)
 {
-  struct sockaddr_in server_addr;
-  memset(&server_addr, 0x0, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = inet_addr(ip);
-  server_addr.sin_port = htons(port);
-  return server_addr;
-}
-
-int start_socket() {
-  int start_socket;
-  start_socket = socket(AF_INET, SOCK_DGRAM, 0);
-  if (start_socket < 0) {
-    perror("[SOCKET] - FAIL - Failed to open socket.\n");
-    exit(EXIT_FAILURE);
-  }
-  return start_socket;
+    char *result = malloc(strlen(s1) + strlen(s2) + 1);
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
 }
 
 mqd_t start_enlace_queue() {
@@ -84,8 +72,21 @@ int receive_message(int sd, struct sockaddr_in endClient, int bufferLen) {
   if(!strcmp(buffer, "stop")) {
     stop = 1;
   }
+
   if(!strcmp(buffer, "print")) {
-    FILE * f2 = fopen("./src/static/received.csv", "wb");
+    char * filename = "./src/static/received-";
+    char timestamp_str[16];
+    time_t rawtime;
+
+    time(&rawtime);
+    sprintf(timestamp_str, "%ld", rawtime);
+
+    puts(filename);
+    puts(timestamp_str);
+    filename = concat(filename, timestamp_str);
+    filename = concat(filename, ".csv");
+
+    FILE * f2 = fopen(filename, "wb");
     TNode * temp;
     for(temp=ptr_init; temp != NULL; temp=temp->next) {
       memset(buffer, 0x0, newBufferLen);
@@ -99,10 +100,6 @@ int receive_message(int sd, struct sockaddr_in endClient, int bufferLen) {
   }
   free(buffer);
   return stop;
-}
-
-void send_message(int sd, struct sockaddr_in endClient, char * message) {
-  sendto(sd, message, strlen(message), 0, (const struct sockaddr *)&endClient, sizeof(endClient));
 }
 
 void create_server(char * ip, int port, int bufferLen) {
@@ -179,40 +176,15 @@ void create_server(char * ip, int port, int bufferLen) {
   }
 }
 
-void create_client(char * ip, int port, char * ip_server, int port_server, int bufferLen) {
-  printf("[SOCKET][CLIENT] - INFO - Starting socket...\n");
-  int sd = start_socket();
 
-  printf("[SOCKET][CLIENT] - INFO - Configuring client and server.\n");
-  struct sockaddr_in client = format_addr(ip, port);
-  struct sockaddr_in server = format_addr(ip_server, port_server);
+int main(int argc, char *argv[]) {
+  char * ip_server;
+  int port_server;
 
-  printf("[SOCKET][CLIENT] - INFO - Reading message file.\n");
-  FILE * f = fopen("./src/static/test.csv", "rb");
-  size_t bytes;
-  char * buffer = (char *)malloc(newBufferLen * sizeof(char));
-  newBufferLen = bufferLen;
+  ip_server = argv[1];
+  port_server = atoi(argv[2]);
   
-  printf("[SOCKET][CLIENT] - INFO - BIND IP: %s\tPORT: %d\tSERVER IP: %s\tPORT: %d\n", ip, port, ip_server, port_server);
-  
-  if(bind(sd, (const struct sockaddr *)&client, sizeof(client)) < 0) {
-   perror("[SOCKET][CLIENT] - FAIL - Failed to bind socket.\n");
-   exit(EXIT_FAILURE); 
-  }
+  create_server(ip_server, port_server, MAX_BUFFER);
 
-  if(f == NULL) {
-    perror("[SOCKET][CLIENT] - FAIL - Error at message file!\n");
-    exit(1); 
-  }
-
-  printf("%d\n", newBufferLen);
-
-  while((bytes = fread(buffer, sizeof(char), newBufferLen, f))) {
-    send_message(sd, server, buffer);
-  }
-
-  send_message(sd, server, "print");
-  send_message(sd, server, "stop");
-
-  free(buffer);
-} 
+  return 0; 
+}
