@@ -53,3 +53,6 @@ dkms.conf
 *.swp
 *.swo
 bin/*
+
+# project ignore
+received.csv
