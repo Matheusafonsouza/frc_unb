@@ -10,5 +10,8 @@ make compile
 ## Para executar
 
 ~~~BASH
-make run IP_SERVER="127.0.0.1" PORT_SERVER="8001" PORT_SERVER2="8002" IP_CLIENT="127.0.0.1" PORT_CLIENT="8003"
+`para subir o server que vai receber o arquivo`
+make run-server IP_SERVER="127.0.0.1" PORT_SERVER="8001"
+`para subir o client que vai enviar o arquivo`
+make run-client IP_SERVER="127.0.0.1" PORT_SERVER2="8002" IP_CLIENT="127.0.0.1" PORT_CLIENT="8001"
 ~~~
